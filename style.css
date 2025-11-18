@@ -1,0 +1,366 @@
+/* 基础 */
+body {
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system,
+               BlinkMacSystemFont, sans-serif;
+  margin: 12px;
+  background: #f1f1f1;
+  font-size: 13px;   /* 略微大一点，别那么挤 */
+}
+
+.weapon-title,
+.armor-card-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.field-row label,
+.inline-label,
+.armor-custom-label {
+  font-size: 12px;
+}
+
+h1 {
+  margin-bottom: 2px;
+}
+
+.subtitle {
+  font-size: 11px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+/* 主属性方块 */
+.main-stat-row {
+  margin-bottom: 8px;
+}
+
+.main-stat-toggle {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 6px;
+}
+
+.main-stat-option {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.main-stat-option input {
+  display: none;
+}
+
+.main-stat-option .box {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #666;
+  margin-right: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.main-stat-option.active .box::after {
+  content: "✔";
+}
+
+/* 通用行 */
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.field-row label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* 专门给“属性 + 数值”用的两列结构 */
+.stat-row {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) 40px minmax(0, 1fr);
+  align-items: center;
+}
+
+.stat-row > label {
+  width: auto;
+}
+
+.inline-label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.value-cell {
+  display: flex;
+  align-items: center;
+}
+
+.field-row select,
+.field-row input,
+.field-row button {
+  font-size: 11px;
+  height: 24px;
+  padding: 2px 4px;
+  box-sizing: border-box;
+}
+
+/* 布局 */
+.layout {
+  display: grid;
+  grid-template-columns: 320px minmax(540px, 1fr);
+  gap: 16px;
+  align-items: flex-start;
+}
+
+/* 卡片统一风格 */
+.weapon-card-big,
+.armor-card {
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding: 10px 12px;
+  box-sizing: border-box;
+}
+
+/* 武器卡片稍微染色 */
+.weapon-card-big {
+  background: #fdecec;
+  border-color: #f3b4b4;
+  width: 320px;
+}
+
+/* 防具卡网格 */
+.armor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 240px);
+  gap: 14px;
+  align-items: flex-start;
+}
+
+/* 防具卡片 */
+.armor-card {
+  width: 240px;
+}
+
+.card-header-row,
+.armor-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.weapon-title,
+.armor-card-title {
+  font-weight: bold;
+  font-size: 13px;
+}
+
+/* 顶部“装等 + 类型” */
+.weapon-top-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px minmax(0, 1fr);
+}
+
+.armor-top-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px minmax(0, 1fr);
+}
+
+/* 自定义勾选 */
+.armor-custom-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.armor-custom-checkbox {
+  width: 14px;
+  height: 14px;
+}
+
+/* 右侧列容器 */
+.armor-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 底部额外属性 */
+.extra-panel {
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  padding: 6px 8px;
+  margin-top: 10px;
+  max-width: 680px;
+  font-size: 11px;
+}
+
+.extra-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.extra-row > label {
+  width: 60px;
+  font-weight: bold;
+}
+
+/* 最终属性表 */
+.final-stats {
+  font-size: 11px;
+  background: #fff;
+  border-radius: 3px;
+  border: 1px solid #ddd;
+  padding: 4px 6px;
+  max-width: 360px;
+  margin-top: 6px;
+}
+
+.final-stats table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.final-stats th,
+.final-stats td {
+  border: 1px solid #ddd;
+  padding: 3px 4px;
+  text-align: right;
+}
+
+.final-stats th:first-child,
+.final-stats td:first-child {
+  text-align: left;
+}
+
+/* Debug */
+.debug-output {
+  display: none;
+  margin-top: 10px;
+  border: 1px dashed #ccc;
+  padding: 6px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  background: #fff;
+}
+
+/* 通用隐藏 */
+.hidden {
+  display: none !important;
+}
+
+/* 统一所有 4 列行：装等行 & 属性+数值行 */
+.weapon-top-row,
+.armor-top-row,
+.stat-row {
+  display: grid;
+  grid-template-columns: 70px 120px 40px 120px;  /* 4 列固定宽度 */
+  column-gap: 6px;
+  align-items: center;
+}
+
+/* 这些行里的 label 不要再占死宽度，跟着 grid 走就行 */
+.weapon-top-row > label,
+.armor-top-row > label,
+.stat-row > label,
+.stat-row > .inline-label {
+  width: auto;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 让下拉框 / 输入在各自格子里占满 */
+.weapon-top-row select,
+.armor-top-row select,
+.stat-row select,
+.stat-row input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 放大卡片尺寸 */
+.weapon-card-big {
+  width: 380px;          /* 原来 320，可以按需要再调 */
+}
+
+/* 防具卡变大 */
+.armor-card {
+  width: 320px;          /* 原来 240 */
+}
+
+/* 网格列宽跟着防具卡改，保持 4 列 */
+.armor-grid {
+  grid-template-columns: repeat(4, 320px);
+  gap: 16px;             /* 稍微拉开一点间距，看起来不挤 */
+}
+
+/* 让 4 列更紧凑：1-2、3-4 间距都缩小 */
+.weapon-top-row,
+.armor-top-row,
+.stat-row {
+  display: grid;
+  grid-template-columns: 48px 90px 32px 90px;  /* 4 列更窄 */
+  column-gap: 4px;                             /* 列间距缩小 */
+  align-items: center;
+}
+
+/* label 不要乱占空间，跟着 grid 走就行 */
+.weapon-top-row > label,
+.armor-top-row > label,
+.stat-row > label,
+.stat-row > .inline-label {
+  width: auto;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* 下拉框 / 输入框不再拉满整列，只占需要的宽度 */
+.weapon-top-row select,
+.armor-top-row select,
+.stat-row select,
+.stat-row input {
+  width: 90px;          /* 比列宽略小一点 */
+  min-width: 70px;
+  max-width: 110px;
+  box-sizing: border-box;
+}
+
+/* “数值”、“类型”这类小字居中一点，看起来不散 */
+.stat-row .inline-label,
+.weapon-top-row .inline-label,
+.armor-top-row .inline-label {
+  text-align: center;
+}
+
+/* 顶部行的第 3 列（类型）也居中，对齐下面行的“数值” */
+.weapon-top-row > label:nth-child(3),
+.armor-top-row > label:nth-child(3) {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 所有第 3 列的小字统一居中，看起来就一条直线了 */
+.stat-row .inline-label,
+.weapon-top-row > label:nth-child(3),
+.armor-top-row > label:nth-child(3) {
+  font-size: 11px;
+  text-align: center;
+}
+
+/* 左 1 列：武器固定宽度，右边自动占满 */
+.layout {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  column-gap: 20px;
+}
