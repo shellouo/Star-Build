@@ -8,7 +8,7 @@
 </head>
 
 <body>
-  <h1>星痕共鸣配装器V1</h1>
+  <h1>星痕共鸣配装器V1.1可保存分享版</h1>
   <p class="subtitle">本工具用于星痕共鸣装备配装计算，持续更新中。</p>
 
   <!-- 主属性选择 -->
@@ -170,6 +170,49 @@
   </div>
 
   <!-- 最终属性 -->
+  <!-- 百分比系数设置 -->
+
+<div class="coef-section">
+  <h3>百分比系数设置</h3>
+
+  <div class="field-row">
+    <label>非全能系数</label>
+    <select id="coef-non-vers-select">
+      <option value="19975">19975（默认）</option>
+      <option value="4460">4460</option>
+    </select>
+    <label class="inline-label" style="margin-left:8px;">自定义</label>
+    <input type="checkbox" id="coef-non-vers-custom" />
+    <input
+      type="number"
+      id="coef-non-vers-input"
+      class="value-input hidden"
+      placeholder="输入自定义 k"
+    />
+  </div>
+
+  <div class="field-row">
+    <label>全能系数</label>
+    <select id="coef-vers-select">
+      <option value="11200">11200（默认）</option>
+      <option value="2500">2500</option>
+    </select>
+    <label class="inline-label" style="margin-left:8px;">自定义</label>
+    <input type="checkbox" id="coef-vers-custom" />
+    <input
+      type="number"
+      id="coef-vers-input"
+      class="value-input hidden"
+      placeholder="输入自定义 k"
+    />
+  </div>
+</div>
+  <div class="share-row">
+    <button id="btn-share" type="button">生成分享链接</button>
+    <input id="share-url" type="text" readonly placeholder="点击按钮生成链接" />
+    <button id="btn-copy-share" type="button">复制链接</button>
+    <span id="share-status" class="share-status"></span>
+  </div>
   <div id="final-stats" class="final-stats"></div>
   <pre id="debug-output" class="debug-output"></pre>
 

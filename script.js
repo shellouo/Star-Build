@@ -3,6 +3,55 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const STAT_OPTIONS = ["暴击", "幸运", "精通", "急速", "全能"];
 
+
+  // ---------- v1 存档协议相关常量 ----------
+
+// 主属性枚举：0=力量, 1=智力, 2=敏捷
+const MAIN_STAT_LIST = ["力量", "智力", "敏捷"];
+
+// 属性枚举：顺序不要乱改，将来有新属性就往后面追加
+const STAT_LIST = ["暴击", "精通", "幸运", "急速", "全能"];
+
+// 装等枚举（防具）
+const ARMOR_ILVL_LIST = [120, 140, 160];
+
+// 装等枚举（武器）
+const WEAPON_ILVL_LIST = [100, 120, 130, 140, 150, 160, 170, 180];
+
+// 类型枚举
+const ARMOR_TYPE_LIST = ["副本掉落", "团本打造"];
+const WEAPON_TYPE_LIST = ["副本金武器", "团本红武器", "海神武器"];
+
+// 小工具：从列表找索引，找不到就 -1
+function idxOf(list, value) {
+  const i = list.indexOf(value);
+  return i === -1 ? -1 : i;
+}
+// ---------- base64url 工具（把 JSON 串变成 URL 友好的短串） ----------
+
+// 字符串 → base64url
+function encodeBase64Url(str) {
+  // 先安全处理成 UTF-8，再 btoa
+  const base64 = btoa(unescape(encodeURIComponent(str)));
+  // 替换成 URL-safe 版本，并去掉尾部 '='
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+// base64url → 字符串
+function decodeBase64Url(str) {
+  // 补齐 padding
+  const padLen = (4 - (str.length % 4)) % 4;
+  const padded = str + "=".repeat(padLen);
+  const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
+  const utf8 = atob(base64);
+  return decodeURIComponent(escape(utf8));
+}
+
+
+
+
+
+
   const STAT_ORDER = ["暴击", "精通", "幸运", "急速", "全能"];
   const STAT_META = {
     "暴击": { base: 5, k: 19975 },
@@ -11,6 +60,8 @@ window.addEventListener("DOMContentLoaded", () => {
     "急速": { base: 0, k: 19975 },
     "全能": { base: 0, k: 11200 }
   };
+  const DEFAULT_K_NON_VERS = 19975; // 非全能默认系数
+  const DEFAULT_K_VERS = 11200;     // 全能默认系数
 
   // 装等 → 防具大/小/重铸
   const BASE_CONFIG = {
@@ -620,6 +671,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const dbg = document.getElementById("debug-output");
   const finalStatsDiv = document.getElementById("final-stats");
+  const coefNonVersSelect = document.getElementById("coef-non-vers-select");
+  const coefNonVersCustom = document.getElementById("coef-non-vers-custom");
+  const coefNonVersInput  = document.getElementById("coef-non-vers-input");
+
+  const coefVersSelect = document.getElementById("coef-vers-select");
+  const coefVersCustom = document.getElementById("coef-vers-custom");
+  const coefVersInput  = document.getElementById("coef-vers-input");
 
   function getNumericFromSelectOrInput(selValue, inputEl, isCustomOn) {
     if (isCustomOn) {
@@ -630,6 +688,493 @@ window.addEventListener("DOMContentLoaded", () => {
       return isNaN(v) ? 0 : v;
     }
   }
+
+    // 读取当前的非全能系数 k
+  function getCurrentKNonVers() {
+    if (coefNonVersCustom && coefNonVersCustom.checked) {
+      const v = parseFloat(coefNonVersInput.value);
+      if (isNaN(v) || v <= 0) return DEFAULT_K_NON_VERS;
+      return v;
+    }
+    if (coefNonVersSelect) {
+      const v = parseFloat(coefNonVersSelect.value);
+      if (!isNaN(v) && v > 0) return v;
+    }
+    return DEFAULT_K_NON_VERS;
+  }
+
+  // 读取当前的全能系数 k
+  function getCurrentKVers() {
+    if (coefVersCustom && coefVersCustom.checked) {
+      const v = parseFloat(coefVersInput.value);
+      if (isNaN(v) || v <= 0) return DEFAULT_K_VERS;
+      return v;
+    }
+    if (coefVersSelect) {
+      const v = parseFloat(coefVersSelect.value);
+      if (!isNaN(v) && v > 0) return v;
+    }
+    return DEFAULT_K_VERS;
+  }
+
+  // 切换自定义开关时，隐藏/显示 select vs input
+  function updateCoefControls() {
+    if (coefNonVersSelect && coefNonVersInput && coefNonVersCustom) {
+      const on = coefNonVersCustom.checked;
+      if (on) {
+        coefNonVersSelect.classList.add("hidden");
+        coefNonVersInput.classList.remove("hidden");
+      } else {
+        coefNonVersSelect.classList.remove("hidden");
+        coefNonVersInput.classList.add("hidden");
+      }
+    }
+
+    if (coefVersSelect && coefVersInput && coefVersCustom) {
+      const on = coefVersCustom.checked;
+      if (on) {
+        coefVersSelect.classList.add("hidden");
+        coefVersInput.classList.remove("hidden");
+      } else {
+        coefVersSelect.classList.remove("hidden");
+        coefVersInput.classList.add("hidden");
+      }
+    }
+
+    // 切换后重新算一遍
+    updateAll();
+  }
+
+
+
+  // ---------- 收集当前 UI 状态：内部结构 ----------
+  function collectCurrentBuild() {
+      // 1) 主属性
+      const mainStatStr = getMainStat(); // 已经有这个函数，返回 "力量"/"智力"/"敏捷" 或 ""
+
+      // 2) 武器
+      const weaponCustomOn = w_customToggle.checked;
+
+      function readWeaponLine(statSel, valSel, valInput) {
+        const statName = statSel.value;
+        if (!statName) return null;
+        const statIndex = idxOf(STAT_LIST, statName);
+        if (statIndex < 0) return null;
+
+        let value = 0;
+        if (weaponCustomOn && valInput && !valInput.classList.contains("hidden")) {
+          value = parseInt(valInput.value, 10) || 0;
+        } else {
+          value = parseInt(valSel.value, 10) || 0;
+        }
+        if (!value) return null;
+
+        return [statIndex, value]; // v1 简化版：只存“属性索引 + 数值”
+      }
+
+      const weapon = {
+        ilIndex: idxOf(WEAPON_ILVL_LIST, Number(w_ilvl.value)),   // 装等索引
+        typeIndex: idxOf(WEAPON_TYPE_LIST, w_type.value),         // 类型索引
+        adv1: readWeaponLine(w_s1, w_s1v, w_s1i),
+        adv2: readWeaponLine(w_s2, w_s2v, w_s2i),
+        reforge: (w_rstat.disabled ? null : readWeaponLine(w_rstat, w_rval, w_ri)),
+        extras: []
+      };
+
+      // 固定额外 1/2 百分比
+      [ [e1, e1v], [e2, e2v] ].forEach(([sel, input]) => {
+        const statName = sel.value;
+        if (!statName) return;
+        const statIndex = idxOf(STAT_LIST, statName);
+        if (statIndex < 0) return;
+        const pct = parseFloat(input.value);
+        if (isNaN(pct) || !pct) return;
+        weapon.extras.push([statIndex, Math.round(pct * 10)]); // 百分比 *10 存整数
+      });
+
+      // 动态添加的额外词条（按钮生成的那些）
+      if (weaponExtraContainer) {
+        const blocks = weaponExtraContainer.querySelectorAll(".weapon-extra-block");
+        blocks.forEach((block) => {
+          const sel = block.querySelector("select");
+          const input = block.querySelector("input");
+          if (!sel || !input) return;
+          const statName = sel.value;
+          const statIndex = idxOf(STAT_LIST, statName);
+          if (statIndex < 0) return;
+          const pct = parseFloat(input.value);
+          if (isNaN(pct) || !pct) return;
+          weapon.extras.push([statIndex, Math.round(pct * 10)]);
+        });
+      }
+
+      // 3) 十个部位
+      const armor = armorCards.map((a) => {
+        const customOn = a.customToggle.checked;
+
+        function readLine(statSel, valSel, valInput) {
+          const statName = statSel.value;
+          if (!statName) return null;
+          const statIndex = idxOf(STAT_LIST, statName);
+          if (statIndex < 0) return null;
+
+          let value = 0;
+          if (customOn && valInput && !valInput.classList.contains("hidden")) {
+            value = parseInt(valInput.value, 10) || 0;
+          } else {
+            value = parseInt(valSel.value, 10) || 0;
+          }
+          if (!value) return null;
+          return [statIndex, value];
+        }
+
+        const slotObj = {
+          ilIndex: idxOf(ARMOR_ILVL_LIST, Number(a.ilvl.value)),
+          typeIndex: idxOf(ARMOR_TYPE_LIST, a.type.value),
+          adv1: readLine(a.stat1, a.val1Select, a.val1Input),
+          adv2: readLine(a.stat2, a.val2Select, a.val2Input),
+          reforge: readLine(a.reforgeStat, a.reforgeValSelect, a.reforgeValInput),
+          inlay: null
+        };
+
+        if (a.inlayStat && (a.inlayValSelect || a.inlayValInput)) {
+          const statName = a.inlayStat.value;
+          const statIndex = idxOf(STAT_LIST, statName);
+          if (statIndex >= 0) {
+            let value = 0;
+            if (customOn && a.inlayValInput && !a.inlayValInput.classList.contains("hidden")) {
+              value = parseInt(a.inlayValInput.value, 10) || 0;
+            } else if (a.inlayValSelect) {
+              value = parseInt(a.inlayValSelect.value, 10) || 0;
+            }
+            if (value) {
+              slotObj.inlay = [statIndex, value];
+            }
+          }
+        }
+
+        return slotObj;
+      });
+
+      // 4) 底部额外属性 flat + 转换 conv
+      const extraFlat = [];
+      if (extraFlatContainer) {
+        const rows = extraFlatContainer.querySelectorAll(".field-row");
+        rows.forEach((row) => {
+          const sel = row.querySelector("select");
+          const input = row.querySelector("input");
+          if (!sel || !input) return;
+          const statIndex = idxOf(STAT_LIST, sel.value);
+          if (statIndex < 0) return;
+          const val = parseInt(input.value, 10) || 0;
+          if (!val) return;
+          extraFlat.push([statIndex, val]);
+        });
+      }
+
+      const extraConv = [];
+      if (convContainer) {
+        const blocks = convContainer.querySelectorAll(".conv-block");
+        blocks.forEach((block) => {
+          const selects = block.querySelectorAll("select");
+          const inputs = block.querySelectorAll("input");
+          if (selects.length < 2 || inputs.length < 2) return;
+          const upIndex = idxOf(STAT_LIST, selects[0].value);
+          const downIndex = idxOf(STAT_LIST, selects[1].value);
+          const upPct = parseFloat(inputs[0].value);
+          const downPct = parseFloat(inputs[1].value);
+          if (upIndex < 0 || isNaN(upPct)) return;
+          if (downIndex < 0 || isNaN(downPct)) return;
+          extraConv.push([
+            upIndex,
+            Math.round(upPct * 10),
+            downIndex,
+            Math.round(downPct * 10)
+          ]);
+        });
+      }
+      // 当前系数
+      const kNonVers = getCurrentKNonVers();
+      const kVers = getCurrentKVers();
+
+      return {
+        mainStatIndex: idxOf(MAIN_STAT_LIST, mainStatStr),
+        weapon,
+        armor,
+        extra: {
+          flat: extraFlat,
+          conv: extraConv,
+          kNonVers,
+          kVers   
+        }
+      };
+  }
+// ---------- v1 存档编码：内部结构 -> token 字符串 ----------
+
+  function encodeV1Token() {
+      const state = collectCurrentBuild();
+
+      const saveObj = {
+        v: 1,
+        m: state.mainStatIndex,
+        w: {
+          il: state.weapon.ilIndex,
+          t: state.weapon.typeIndex,
+          a1: state.weapon.adv1,
+          a2: state.weapon.adv2,
+          r:  state.weapon.reforge,
+          ex: state.weapon.extras
+        },
+        a: state.armor,
+        ex: state.extra
+      };
+
+      const json = JSON.stringify(saveObj);
+      const encoded = encodeBase64Url(json);
+      const token = "v1_" + encoded;
+      return token;
+  }
+  // 生成完整分享链接
+  function makeShareUrlV1() {
+      const token = encodeV1Token();
+      const baseUrl = window.location.origin + window.location.pathname;
+      return baseUrl + "?" + token;
+  }
+  window.collectCurrentBuild = collectCurrentBuild;
+  window.encodeV1Token = encodeV1Token;
+  window.makeShareUrlV1 = makeShareUrlV1;
+
+
+
+    // ---------- v1 存档解码：存档对象 -> 回填 UI ----------
+  function applySaveV1(saveObj) {
+    if (!saveObj || saveObj.v !== 1) return;
+
+    // 1) 主属性
+    const mainIndex = saveObj.m;
+    if (mainIndex >= 0 && mainIndex < MAIN_STAT_LIST.length) {
+      const mainValue = MAIN_STAT_LIST[mainIndex];
+      mainStatRadios.forEach((r) => {
+        r.checked = (r.value === mainValue);
+      });
+      updateMainStatUI();
+    }
+
+    // 2) 武器
+    const wData = saveObj.w || {};
+    const weaponIlvl = WEAPON_ILVL_LIST[wData.il];
+    if (weaponIlvl != null) {
+      w_ilvl.value = String(weaponIlvl);
+      updateWeaponType();
+      updateWeaponValueSelects();
+      updateWeaponReforgeDisabled();
+    }
+
+    const weaponType = WEAPON_TYPE_LIST[wData.t];
+    if (weaponType) {
+      w_type.value = weaponType;
+      updateWeaponReforgeDisabled();
+    }
+
+    // 统一切到自定义模式，直接填数值
+    w_customToggle.checked = true;
+    updateWeaponCustomMode();
+
+    function setWeaponLine(data, statSel, valInput) {
+      if (!data) {
+        statSel.value = "";
+        valInput.value = "";
+        return;
+      }
+      const [statIndex, value] = data;
+      const statName = STAT_LIST[statIndex];
+      if (!statName) return;
+      statSel.value = statName;
+      valInput.value = String(value);
+    }
+
+    setWeaponLine(wData.a1, w_s1, w_s1i);
+    setWeaponLine(wData.a2, w_s2, w_s2i);
+    if (!w_rstat.disabled) {
+      setWeaponLine(wData.r, w_rstat, w_ri);
+    } else {
+      w_rstat.value = "";
+      w_ri.value = "";
+    }
+
+    // 额外词条：先用 e1/e2，再用动态块
+    const exList = (wData.ex || []).slice();
+    function setExtraFixed(sel, input) {
+      if (!sel || !input) return;
+      const data = exList.shift();
+      if (!data) {
+        sel.value = "";
+        input.value = "";
+        return;
+      }
+      const [statIndex, v10] = data;
+      const statName = STAT_LIST[statIndex];
+      if (!statName) return;
+      sel.value = statName;
+      input.value = (v10 / 10).toFixed(1).replace(/\.0$/, "");
+    }
+    setExtraFixed(e1, e1v);
+    setExtraFixed(e2, e2v);
+
+    if (weaponExtraContainer) {
+      weaponExtraContainer.innerHTML = "";
+      exList.forEach(([statIndex, v10]) => {
+        createWeaponExtraBlock();
+        const block = weaponExtraContainer.lastElementChild;
+        const sel = block.querySelector("select");
+        const input = block.querySelector("input");
+        if (!sel || !input) return;
+        const statName = STAT_LIST[statIndex];
+        if (!statName) return;
+        sel.value = statName;
+        input.value = (v10 / 10).toFixed(1).replace(/\.0$/, "");
+      });
+    }
+
+    // 3) 防具
+    const armorArr = saveObj.a || [];
+    armorCards.forEach((card, idx) => {
+      const slotData = armorArr[idx];
+      if (!slotData) return;
+
+      const ilvl = ARMOR_ILVL_LIST[slotData.ilIndex];
+      if (ilvl != null) {
+        card.ilvl.value = String(ilvl);
+      }
+      const typeName = ARMOR_TYPE_LIST[slotData.typeIndex];
+      if (typeName) {
+        card.type.value = typeName;
+      }
+
+      // 触发 change，让数值列表刷新
+      card.ilvl.dispatchEvent(new Event("change"));
+      card.type.dispatchEvent(new Event("change"));
+
+      // 切换成自定义模式
+      card.customToggle.checked = true;
+      card.customToggle.dispatchEvent(new Event("change"));
+
+      function setArmorLine(data, statSel, valInput) {
+        if (!data) {
+          statSel.value = "";
+          valInput.value = "";
+          return;
+        }
+        const [statIndex, value] = data;
+        const statName = STAT_LIST[statIndex];
+        if (!statName) return;
+        statSel.value = statName;
+        valInput.value = String(value);
+      }
+
+      setArmorLine(slotData.adv1, card.stat1, card.val1Input);
+      setArmorLine(slotData.adv2, card.stat2, card.val2Input);
+      setArmorLine(slotData.reforge, card.reforgeStat, card.reforgeValInput);
+
+      if (card.inlayStat && card.inlayValInput) {
+        setArmorLine(slotData.inlay, card.inlayStat, card.inlayValInput);
+      }
+    });
+
+
+    const ex = saveObj.ex || {};
+
+    // 4) 底部额外属性 flat
+    if (extraFlatContainer && Array.isArray(ex.flat)) {
+      extraFlatContainer.innerHTML = "";
+      ex.flat.forEach(([statIndex, value]) => {
+        createExtraFlatRow();
+        const row = extraFlatContainer.lastElementChild;
+        const sel = row.querySelector("select");
+        const input = row.querySelector("input");
+        if (!sel || !input) return;
+        const statName = STAT_LIST[statIndex];
+        if (!statName) return;
+        sel.value = statName;
+        input.value = String(value);
+      });
+    }
+
+    // 转换因子
+    if (convContainer && Array.isArray(ex.conv)) {
+      convContainer.innerHTML = "";
+      ex.conv.forEach(([upIndex, up10, downIndex, down10]) => {
+        createConvBlock();
+        const block = convContainer.lastElementChild;
+        const selects = block.querySelectorAll("select");
+        const inputs = block.querySelectorAll("input");
+        if (selects.length < 2 || inputs.length < 2) return;
+
+        const upName = STAT_LIST[upIndex];
+        const downName = STAT_LIST[downIndex];
+        if (upName) selects[0].value = upName;
+        if (downName) selects[1].value = downName;
+        inputs[0].value = (up10 / 10).toFixed(1).replace(/\.0$/, "");
+        inputs[1].value = (down10 / 10).toFixed(1).replace(/\.0$/, "");
+      });
+    }
+    // 5) 百分比系数（如果老链接里没有这两项，就保持默认）
+    if (typeof ex.kNonVers === "number") {
+      const v = ex.kNonVers;
+      if (coefNonVersSelect && coefNonVersCustom && coefNonVersInput) {
+        if (v === 19975 || v === 4460) {
+          coefNonVersCustom.checked = false;
+          coefNonVersSelect.value = String(v);
+          coefNonVersInput.value = "";
+        } else {
+          coefNonVersCustom.checked = true;
+          coefNonVersInput.value = String(v);
+        }
+        updateCoefControls();
+      }
+    }
+
+    if (typeof ex.kVers === "number") {
+      const v = ex.kVers;
+      if (coefVersSelect && coefVersCustom && coefVersInput) {
+        if (v === 11200 || v === 2500) {
+          coefVersCustom.checked = false;
+          coefVersSelect.value = String(v);
+          coefVersInput.value = "";
+        } else {
+          coefVersCustom.checked = true;
+          coefVersInput.value = String(v);
+        }
+        updateCoefControls();
+      }
+    }
+
+    // 最后再跑一遍
+    updateAllArmorStatOptions();
+    updateAll();
+  }
+
+  // ---------- 从 URL 读取并应用 ----------
+  function loadFromUrlIfAny() {
+    const qs = window.location.search;
+    if (!qs || qs.length <= 1) return;
+    const token = qs.slice(1); // 去掉 '?'
+
+    if (token.startsWith("v1_")) {
+      const encoded = token.slice(3);
+      try {
+        const json = decodeBase64Url(encoded);
+        const obj = JSON.parse(json);
+        applySaveV1(obj);
+      } catch (e) {
+        console.error("解析 v1 存档失败：", e);
+      }
+    }
+  }
+
+
+
+
 
   function updateAll() {
     // Debug 信息（可选）
@@ -819,12 +1364,21 @@ window.addEventListener("DOMContentLoaded", () => {
     let html =
       '<table><tr><th>属性</th><th>总数值 x</th><th>额外%</th><th>最终%</th></tr>';
 
-    STAT_ORDER.forEach((name) => {
+     STAT_ORDER.forEach((name) => {
       const meta = STAT_META[name];
       const x = rating[name] || 0;
       const extra = bonusPct[name] || 0;
       const base = meta.base;
-      const k = meta.k;
+
+      let k;
+      if (name === "全能") {
+        k = getCurrentKVers();
+      } else {
+        k = getCurrentKNonVers();
+      }
+      if (!k) {
+        k = meta.k; // 兜底
+      }
 
       let finalPct;
       if (x <= 0) {
@@ -844,6 +1398,7 @@ window.addEventListener("DOMContentLoaded", () => {
     html += "</table>";
     finalStatsDiv.innerHTML = html;
   }
+
 
   // ---------- 事件绑定 ----------
 
@@ -1032,6 +1587,88 @@ window.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+    // 百分比系数事件
+  if (coefNonVersCustom) {
+    coefNonVersCustom.addEventListener("change", updateCoefControls);
+  }
+  if (coefNonVersSelect) {
+    coefNonVersSelect.addEventListener("change", updateAll);
+  }
+  if (coefNonVersInput) {
+    coefNonVersInput.addEventListener("input", updateAll);
+  }
+
+  if (coefVersCustom) {
+    coefVersCustom.addEventListener("change", updateCoefControls);
+  }
+  if (coefVersSelect) {
+    coefVersSelect.addEventListener("change", updateAll);
+  }
+  if (coefVersInput) {
+    coefVersInput.addEventListener("input", updateAll);
+  }
+
+
+
+
+
+    // ---------- 分享按钮 ----------
+
+  const btnShare = document.getElementById("btn-share");
+  const btnCopyShare = document.getElementById("btn-copy-share");
+  const shareUrlInput = document.getElementById("share-url");
+  const shareStatus = document.getElementById("share-status");
+
+  function setShareStatus(text) {
+    if (!shareStatus) return;
+    shareStatus.textContent = text;
+    if (!text) return;
+    // 简单 2 秒清空
+    setTimeout(() => {
+      if (shareStatus.textContent === text) {
+        shareStatus.textContent = "";
+      }
+    }, 2000);
+  }
+
+  if (btnShare && shareUrlInput) {
+    btnShare.addEventListener("click", () => {
+      try {
+        const url = makeShareUrlV1();   // 用你刚刚写好的函数
+        shareUrlInput.value = url;
+        setShareStatus("链接已生成");
+      } catch (e) {
+        console.error(e);
+        setShareStatus("生成失败（看控制台报错）");
+      }
+    });
+  }
+
+  if (btnCopyShare && shareUrlInput) {
+    btnCopyShare.addEventListener("click", async () => {
+      const url = shareUrlInput.value.trim();
+      if (!url) {
+        setShareStatus("请先生成链接");
+        return;
+      }
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          // 老浏览器兜底
+          shareUrlInput.select();
+          document.execCommand("copy");
+        }
+        setShareStatus("已复制到剪贴板");
+      } catch (e) {
+        console.error(e);
+        setShareStatus("复制失败");
+      }
+    });
+  }
+
+
   // ---------- 初始化 ----------
 
   updateWeaponType();
@@ -1040,5 +1677,9 @@ window.addEventListener("DOMContentLoaded", () => {
   updateWeaponCustomMode();
   updateMainStatUI();
   updateAllArmorStatOptions();
+
+  updateCoefControls();   // 同步一次系数 UI 默认状态
+
+  loadFromUrlIfAny();
   updateAll();
 });
