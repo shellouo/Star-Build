@@ -76,6 +76,9 @@ function decodeBase64Url(str) {
       "副本掉落": { v1: 756, v2: 378, reforge: 226 },
       "团本打造": { v1: 756, v2: 756, reforge: 226 }
     },
+    150: {
+      "团本打造": { v1: 828, v2: 828, reforge: 226 }
+    },
 
     // ✅ 你这次新增/更新的
     160: {
@@ -177,7 +180,7 @@ function decodeBase64Url(str) {
     "护符"
   ];
 
-  const ARMOR_ILVLS = [120, 140, 160, 165, 170];
+  const ARMOR_ILVLS = [120, 140, 150, 160, 165, 170];
   const ARMOR_TYPES = ["副本掉落", "团本打造"];
 
   // ---------- 工具函数 ----------
